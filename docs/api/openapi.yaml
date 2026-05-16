@@ -1,0 +1,10 @@
+Genera un diagrama en Mermaid para la arquitectura de MoveFast con:
+
+- Usuario
+- API Gateway
+- Load Balancer
+- Servicios
+- Base de datos primaria
+- Réplica
+
+Debe ser claro para tarea universitaria
