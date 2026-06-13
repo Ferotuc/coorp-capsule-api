@@ -2,7 +2,7 @@
 
 ## Resumen
 
-Coorp Capsule API usa una arquitectura modular simple para el MVP. La aplicacion expone endpoints HTTP con FastAPI, valida entradas con Pydantic y mantiene el estado temporal en memoria. Esta decision permite demostrar el flujo principal de negocio sin agregar complejidad de infraestructura antes de validar el MVP.
+Coorp Capsule API usa una arquitectura modular simple para el MVP. La aplicacion expone endpoints HTTP con FastAPI, valida entradas con Pydantic, mantiene el estado temporal en memoria y usa Redis como cache para acelerar consultas repetidas de productos. Docker Compose levanta la API y Redis como servicios separados.
 
 ## Bloques principales
 
@@ -13,6 +13,8 @@ Coorp Capsule API usa una arquitectura modular simple para el MVP. La aplicacion
 | Modelos Pydantic | Validan request bodies y definen respuestas |
 | Servicio de inventario | Gestiona productos, estados y movimientos |
 | Almacenamiento en memoria | Guarda productos y movimientos durante la ejecucion local |
+| Redis | Guarda respuestas cacheadas de productos con TTL |
+| Docker Compose | Orquesta el contenedor de la API y el contenedor de Redis |
 | OpenAPI | Documenta contrato, requests, responses y errores |
 
 ## Diagrama Mermaid
@@ -24,7 +26,31 @@ flowchart LR
     api --> validators["Modelos Pydantic"]
     validators --> rules["Reglas de negocio"]
     rules --> memory["Almacenamiento en memoria"]
+    api <--> redis["Redis cache"]
     api --> openapi["Contrato OpenAPI"]
+```
+
+## Flujo de cache Redis
+
+```mermaid
+sequenceDiagram
+    actor U as Usuario
+    participant API as FastAPI
+    participant R as Redis
+    participant M as Memoria
+
+    U->>API: GET /products/{product_id}
+    API->>R: GET coorp:product:{product_id}
+    alt Cache hit
+        R-->>API: Producto en JSON
+        API-->>U: 200 X-Cache HIT
+    else Cache miss
+        R-->>API: Sin dato
+        API->>M: Buscar producto
+        M-->>API: Producto
+        API->>R: SETEX coorp:product:{product_id} 60
+        API-->>U: 200 X-Cache MISS
+    end
 ```
 
 ## Flujo de movimiento de inventario
@@ -56,15 +82,15 @@ sequenceDiagram
 
 ### Decision
 
-Usar FastAPI con almacenamiento temporal en memoria.
+Usar FastAPI con almacenamiento temporal en memoria y Redis como cache-aside para consultas de producto.
 
 ### Justificacion
 
-FastAPI permite construir una API funcional de forma rapida, validar entradas con Pydantic y generar documentacion interactiva en Swagger. Para el MVP, el almacenamiento en memoria es suficiente porque el objetivo de la tarea es demostrar el contrato de API y el flujo principal de negocio, no operar datos productivos.
+FastAPI permite construir una API funcional de forma rapida, validar entradas con Pydantic y generar documentacion interactiva en Swagger. Redis se agrega porque `GET /products/{product_id}` puede repetirse muchas veces en operaciones de inventario y es un buen candidato para cache. El TTL evita datos guardados indefinidamente y la API invalida la clave cuando cambia el producto o su stock.
 
 ### Consecuencia
 
-La API es facil de ejecutar localmente y permite probar el flujo completo. La limitacion es que los datos se pierden al reiniciar el servidor. En una siguiente iteracion, el almacenamiento en memoria se reemplazaria por PostgreSQL o SQLite.
+La API es facil de ejecutar localmente con `docker compose up --build` y permite demostrar cache hit/cache miss. La limitacion principal es que los datos base siguen en memoria y se pierden al reiniciar el servidor. En una siguiente iteracion, el almacenamiento en memoria se reemplazaria por PostgreSQL o SQLite.
 
 ## Evolucion propuesta
 

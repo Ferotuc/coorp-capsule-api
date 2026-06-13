@@ -8,7 +8,7 @@ Coorp Capsule API.
 
 Pequenas operaciones de inventario suelen registrar productos y movimientos en hojas de calculo, mensajes o documentos sueltos. Esto provoca errores de stock, falta de trazabilidad y poca claridad sobre que entradas o salidas afectaron cada producto.
 
-Coorp Capsule API centraliza el flujo minimo de inventario: registrar productos, consultar su estado, activar o desactivar productos y registrar movimientos que actualizan el stock.
+Coorp Capsule API centraliza el flujo minimo de inventario: registrar productos, consultar su estado, activar o desactivar productos y registrar movimientos que actualizan el stock. La version de esta entrega agrega Redis en Docker para cachear consultas repetidas de productos.
 
 ## Usuarios principales
 
@@ -24,6 +24,7 @@ Coorp Capsule API centraliza el flujo minimo de inventario: registrar productos,
 4. La API valida que el producto exista, este activo y tenga stock suficiente para salidas.
 5. La API actualiza el stock y guarda el movimiento.
 6. El usuario consulta el historial de movimientos del producto.
+7. La API usa Redis para responder consultas repetidas de producto mientras la clave tenga TTL vigente.
 
 ## Scope
 
@@ -35,6 +36,8 @@ Coorp Capsule API centraliza el flujo minimo de inventario: registrar productos,
 - Consultar movimientos por producto.
 - Validacion basica de datos.
 - Errores documentados 400 y 404.
+- Cache Redis para `GET /products/{product_id}`.
+- Ejecucion local con Docker Compose.
 
 ## No-scope
 

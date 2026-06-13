@@ -1,6 +1,9 @@
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app import main as app_main
+
+
+app = app_main.app
 
 
 client = TestClient(app)
@@ -58,3 +61,40 @@ def test_product_not_found_returns_404():
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Producto no encontrado"
+
+
+class FakeRedis:
+    def __init__(self):
+        self.store = {}
+        self.ttl_by_key = {}
+
+    def get(self, key):
+        return self.store.get(key)
+
+    def setex(self, key, ttl, value):
+        self.store[key] = value
+        self.ttl_by_key[key] = ttl
+
+    def delete(self, key):
+        self.store.pop(key, None)
+        self.ttl_by_key.pop(key, None)
+
+
+def test_get_product_uses_redis_cache_with_ttl(monkeypatch):
+    fake_redis = FakeRedis()
+    monkeypatch.setattr(app_main, "redis_client", fake_redis)
+
+    product_response = client.post(
+        "/products",
+        json={"codigo": "CAP-T-CACHE", "nombre": "Capsula Cache", "precio": 75.0, "activo": True},
+    )
+    product = product_response.json()
+
+    first_response = client.get(f"/products/{product['id']}")
+    second_response = client.get(f"/products/{product['id']}")
+    cache_key = app_main.product_cache_key(product["id"])
+
+    assert first_response.status_code == 200
+    assert first_response.headers["X-Cache"] == "MISS"
+    assert second_response.headers["X-Cache"] == "HIT"
+    assert fake_redis.ttl_by_key[cache_key] == app_main.CACHE_TTL_SECONDS

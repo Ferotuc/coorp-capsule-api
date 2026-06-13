@@ -8,7 +8,21 @@ Coorp Capsule API es un MVP tecnico para gestionar inventario basico de producto
 - FastAPI
 - Pydantic
 - Uvicorn
+- Redis como cache
+- Docker Compose
 - Almacenamiento temporal en memoria
+
+## Ejecutar con Docker Compose
+
+```bash
+docker compose up --build
+```
+
+Luego abrir:
+
+- API: http://127.0.0.1:8000
+- Swagger UI: http://127.0.0.1:8000/docs
+- Redis: `localhost:6379`
 
 ## Ejecutar localmente
 
@@ -32,7 +46,7 @@ Luego abrir:
 | GET | `/health` | Verificar que la API esta activa |
 | POST | `/products` | Crear un producto |
 | GET | `/products` | Listar productos |
-| GET | `/products/{product_id}` | Consultar un producto |
+| GET | `/products/{product_id}` | Consultar un producto con cache Redis |
 | PUT | `/products/{product_id}` | Actualizar datos del producto |
 | PATCH | `/products/{product_id}/status` | Activar o desactivar un producto |
 | POST | `/movements` | Registrar entrada o salida de stock |
@@ -62,11 +76,21 @@ Consultar producto:
 curl http://127.0.0.1:8000/products/1
 ```
 
+Demostrar cache:
+
+```bash
+curl -i http://127.0.0.1:8000/products/1
+curl -i http://127.0.0.1:8000/products/1
+```
+
+La primera respuesta devuelve `X-Cache: MISS` y guarda la clave `coorp:product:1` en Redis por 60 segundos. La segunda respuesta devuelve `X-Cache: HIT`.
+
 ## Documentacion
 
 - [Resumen del sistema](docs/system-brief.md)
 - [Requerimientos](docs/requirements.md)
 - [Arquitectura](docs/architecture.md)
+- [Cache Redis](docs/cache.md)
 - [Contrato OpenAPI](docs/api/openapi.yaml)
 - [Backlog del MVP](docs/backlog-mvp.md)
 - [Fuente para PDF de entrega](docs/submission-pdf.md)

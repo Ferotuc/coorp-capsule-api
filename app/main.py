@@ -1,8 +1,19 @@
+import json
+import os
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Response, status
 from pydantic import BaseModel, Field, field_validator
+
+try:
+    import redis
+    from redis.exceptions import RedisError
+except ImportError:  # pragma: no cover - permite ejecutar tests sin dependencias instaladas
+    redis = None
+
+    class RedisError(Exception):
+        pass
 
 
 app = FastAPI(
@@ -82,6 +93,57 @@ products: list[dict] = []
 movements: list[dict] = []
 product_id_counter = 1
 movement_id_counter = 1
+CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", "60"))
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+PRODUCT_CACHE_KEY_TEMPLATE = "coorp:product:{product_id}"
+redis_client = (
+    redis.from_url(REDIS_URL, decode_responses=True, socket_connect_timeout=1, socket_timeout=1)
+    if redis
+    else None
+)
+
+
+def product_cache_key(product_id: int) -> str:
+    return PRODUCT_CACHE_KEY_TEMPLATE.format(product_id=product_id)
+
+
+def get_cached_product(product_id: int):
+    if not redis_client:
+        return None
+
+    try:
+        cached_product = redis_client.get(product_cache_key(product_id))
+    except RedisError:
+        return None
+
+    if not cached_product:
+        return None
+
+    return json.loads(cached_product)
+
+
+def cache_product(producto: dict) -> None:
+    if not redis_client:
+        return
+
+    try:
+        redis_client.setex(
+            product_cache_key(producto["id"]),
+            CACHE_TTL_SECONDS,
+            json.dumps(producto),
+        )
+    except RedisError:
+        return
+
+
+def invalidate_product_cache(product_id: int) -> None:
+    if not redis_client:
+        return
+
+    try:
+        redis_client.delete(product_cache_key(product_id))
+    except RedisError:
+        return
 
 
 def buscar_producto(product_id: int):
@@ -105,7 +167,15 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "coorp-capsule-api"}
+    redis_status = "disabled"
+    if redis_client:
+        try:
+            redis_client.ping()
+            redis_status = "ok"
+        except RedisError:
+            redis_status = "unavailable"
+
+    return {"status": "ok", "service": "coorp-capsule-api", "redis": redis_status}
 
 
 @app.post("/products", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
@@ -138,10 +208,18 @@ def listar_productos():
 
 
 @app.get("/products/{product_id}", response_model=ProductResponse)
-def obtener_producto(product_id: int):
+def obtener_producto(product_id: int, response: Response):
+    cached_product = get_cached_product(product_id)
+    if cached_product:
+        response.headers["X-Cache"] = "HIT"
+        return cached_product
+
     producto = buscar_producto(product_id)
     if not producto:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Producto no encontrado")
+
+    cache_product(producto)
+    response.headers["X-Cache"] = "MISS" if redis_client else "BYPASS"
     return producto
 
 
@@ -154,6 +232,7 @@ def actualizar_producto(product_id: int, datos: ProductUpdate):
     producto["nombre"] = datos.nombre
     producto["precio"] = datos.precio
     producto["activo"] = datos.activo
+    invalidate_product_cache(product_id)
 
     return producto
 
@@ -165,6 +244,7 @@ def cambiar_estado_producto(product_id: int, datos: ProductStatusUpdate):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Producto no encontrado")
 
     producto["activo"] = datos.activo
+    invalidate_product_cache(product_id)
     return producto
 
 
@@ -192,6 +272,7 @@ def registrar_movimiento(movimiento: MovementCreate):
         producto["stock"] += movimiento.cantidad
     else:
         producto["stock"] -= movimiento.cantidad
+    invalidate_product_cache(movimiento.producto_id)
 
     nuevo_movimiento = {
         "id": movement_id_counter,

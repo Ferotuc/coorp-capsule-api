@@ -1,393 +1,377 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
   title: Coorp Capsule API
+  description: MVP tecnico para gestionar productos, stock y movimientos de inventario.
   version: 1.0.0
-  description: >
-    MVP tecnico para gestionar productos, stock y movimientos de inventario.
-    La API implementa el flujo principal de negocio: crear productos, consultar
-    inventario, cambiar estado y registrar entradas o salidas de stock.
-servers:
-  - url: http://127.0.0.1:8000
-    description: Ejecucion local
-tags:
-  - name: Health
-    description: Verificacion de disponibilidad
-  - name: Products
-    description: Gestion de productos
-  - name: Movements
-    description: Movimientos de inventario
 paths:
   /:
     get:
-      tags:
-        - Health
-      summary: Mensaje base de la API
+      summary: Root
+      operationId: root__get
       responses:
-        "200":
-          description: API disponible
+        '200':
+          description: Successful Response
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-              example:
-                message: Coorp Capsule API funcionando correctamente
+              schema: {}
   /health:
     get:
-      tags:
-        - Health
-      summary: Health check
+      summary: Health
+      operationId: health_health_get
       responses:
-        "200":
-          description: Servicio activo
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /products:
+    get:
+      summary: Listar Productos
+      operationId: listar_productos_products_get
+      responses:
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                  service:
-                    type: string
-              example:
-                status: ok
-                service: coorp-capsule-api
-  /products:
+                items:
+                  $ref: '#/components/schemas/ProductResponse'
+                type: array
+                title: Response Listar Productos Products Get
     post:
-      tags:
-        - Products
-      summary: Crear producto
-      description: Crea un producto con stock inicial cero.
+      summary: Crear Producto
+      operationId: crear_producto_products_post
       requestBody:
-        required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ProductCreate"
-            example:
-              codigo: CAP-001
-              nombre: Capsula Ejecutiva
-              precio: 125.5
-              activo: true
+              $ref: '#/components/schemas/ProductCreate'
+        required: true
       responses:
-        "201":
-          description: Producto creado
+        '201':
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Product"
-              example:
-                id: 1
-                codigo: CAP-001
-                nombre: Capsula Ejecutiva
-                precio: 125.5
-                activo: true
-                stock: 0
-        "400":
-          description: Codigo de producto duplicado
+                $ref: '#/components/schemas/ProductResponse'
+        '422':
+          description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
-              example:
-                detail: Ya existe un producto con ese codigo
-        "422":
-          description: Error de validacion del request body
-    get:
-      tags:
-        - Products
-      summary: Listar productos
-      responses:
-        "200":
-          description: Lista de productos registrados
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Product"
+                $ref: '#/components/schemas/HTTPValidationError'
   /products/{product_id}:
     get:
-      tags:
-        - Products
-      summary: Consultar producto por ID
+      summary: Obtener Producto
+      operationId: obtener_producto_products__product_id__get
       parameters:
-        - $ref: "#/components/parameters/ProductId"
+      - name: product_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Product Id
       responses:
-        "200":
-          description: Producto encontrado
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Product"
-        "404":
-          description: Producto no encontrado
+                $ref: '#/components/schemas/ProductResponse'
+        '422':
+          description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
-              example:
-                detail: Producto no encontrado
+                $ref: '#/components/schemas/HTTPValidationError'
     put:
-      tags:
-        - Products
-      summary: Actualizar producto
+      summary: Actualizar Producto
+      operationId: actualizar_producto_products__product_id__put
       parameters:
-        - $ref: "#/components/parameters/ProductId"
+      - name: product_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Product Id
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ProductUpdate"
-            example:
-              nombre: Capsula Ejecutiva Plus
-              precio: 145.0
-              activo: true
+              $ref: '#/components/schemas/ProductUpdate'
       responses:
-        "200":
-          description: Producto actualizado
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Product"
-        "404":
-          description: Producto no encontrado
+                $ref: '#/components/schemas/ProductResponse'
+        '422':
+          description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/HTTPValidationError'
   /products/{product_id}/status:
     patch:
-      tags:
-        - Products
-      summary: Cambiar estado de producto
+      summary: Cambiar Estado Producto
+      operationId: cambiar_estado_producto_products__product_id__status_patch
       parameters:
-        - $ref: "#/components/parameters/ProductId"
+      - name: product_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Product Id
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ProductStatusUpdate"
-            example:
-              activo: false
+              $ref: '#/components/schemas/ProductStatusUpdate'
       responses:
-        "200":
-          description: Estado actualizado
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Product"
-        "404":
-          description: Producto no encontrado
+                $ref: '#/components/schemas/ProductResponse'
+        '422':
+          description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/HTTPValidationError'
   /movements:
     post:
-      tags:
-        - Movements
-      summary: Registrar movimiento de inventario
-      description: Registra una entrada o salida y actualiza el stock del producto.
+      summary: Registrar Movimiento
+      operationId: registrar_movimiento_movements_post
       requestBody:
-        required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/MovementCreate"
-            examples:
-              entrada:
-                value:
-                  producto_id: 1
-                  tipo: entrada
-                  cantidad: 10
-                  descripcion: Ingreso inicial
-              salida:
-                value:
-                  producto_id: 1
-                  tipo: salida
-                  cantidad: 2
-                  descripcion: Entrega a cliente
+              $ref: '#/components/schemas/MovementCreate'
+        required: true
       responses:
-        "201":
-          description: Movimiento registrado
+        '201':
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Movement"
-        "400":
-          description: Regla de negocio invalida
+                $ref: '#/components/schemas/MovementResponse'
+        '422':
+          description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                stockInsuficiente:
-                  value:
-                    detail: Stock insuficiente para realizar la salida
-                productoInactivo:
-                  value:
-                    detail: No se pueden registrar movimientos en productos inactivos
-        "404":
-          description: Producto no encontrado
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/HTTPValidationError'
   /products/{product_id}/movements:
     get:
-      tags:
-        - Movements
-      summary: Listar movimientos de un producto
+      summary: Listar Movimientos Producto
+      operationId: listar_movimientos_producto_products__product_id__movements_get
       parameters:
-        - $ref: "#/components/parameters/ProductId"
+      - name: product_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Product Id
       responses:
-        "200":
-          description: Movimientos del producto
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Movement"
-        "404":
-          description: Producto no encontrado
+                  $ref: '#/components/schemas/MovementResponse'
+                title: Response Listar Movimientos Producto Products  Product Id  Movements
+                  Get
+        '422':
+          description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
-  parameters:
-    ProductId:
-      name: product_id
-      in: path
-      required: true
-      description: Identificador del producto
-      schema:
-        type: integer
-        minimum: 1
   schemas:
-    ProductCreate:
-      type: object
-      required:
-        - codigo
-        - nombre
-        - precio
-      properties:
-        codigo:
-          type: string
-          minLength: 1
-          maxLength: 30
-        nombre:
-          type: string
-          minLength: 1
-          maxLength: 120
-        precio:
-          type: number
-          minimum: 0
-        activo:
-          type: boolean
-          default: true
-    ProductUpdate:
-      type: object
-      required:
-        - nombre
-        - precio
-        - activo
-      properties:
-        nombre:
-          type: string
-          minLength: 1
-          maxLength: 120
-        precio:
-          type: number
-          minimum: 0
-        activo:
-          type: boolean
-    ProductStatusUpdate:
-      type: object
-      required:
-        - activo
-      properties:
-        activo:
-          type: boolean
-    Product:
-      type: object
-      required:
-        - id
-        - codigo
-        - nombre
-        - precio
-        - activo
-        - stock
-      properties:
-        id:
-          type: integer
-        codigo:
-          type: string
-        nombre:
-          type: string
-        precio:
-          type: number
-        activo:
-          type: boolean
-        stock:
-          type: integer
-    MovementCreate:
-      type: object
-      required:
-        - producto_id
-        - tipo
-        - cantidad
-        - descripcion
-      properties:
-        producto_id:
-          type: integer
-          minimum: 1
-        tipo:
-          type: string
-          enum:
-            - entrada
-            - salida
-        cantidad:
-          type: integer
-          minimum: 1
-        descripcion:
-          type: string
-          minLength: 1
-          maxLength: 200
-    Movement:
-      type: object
-      required:
-        - id
-        - producto_id
-        - tipo
-        - cantidad
-        - descripcion
-        - fecha
-      properties:
-        id:
-          type: integer
-        producto_id:
-          type: integer
-        tipo:
-          type: string
-          enum:
-            - entrada
-            - salida
-        cantidad:
-          type: integer
-        descripcion:
-          type: string
-        fecha:
-          type: string
-          format: date-time
-    Error:
-      type: object
+    HTTPValidationError:
       properties:
         detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    MovementCreate:
+      properties:
+        producto_id:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Producto Id
+        tipo:
           type: string
+          enum:
+          - entrada
+          - salida
+          title: Tipo
+        cantidad:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Cantidad
+          description: Cantidad mayor que 0
+        descripcion:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Descripcion
+      type: object
+      required:
+      - producto_id
+      - tipo
+      - cantidad
+      - descripcion
+      title: MovementCreate
+    MovementResponse:
+      properties:
+        id:
+          type: integer
+          title: Id
+        producto_id:
+          type: integer
+          title: Producto Id
+        tipo:
+          type: string
+          enum:
+          - entrada
+          - salida
+          title: Tipo
+        cantidad:
+          type: integer
+          title: Cantidad
+        descripcion:
+          type: string
+          title: Descripcion
+        fecha:
+          type: string
+          title: Fecha
+      type: object
+      required:
+      - id
+      - producto_id
+      - tipo
+      - cantidad
+      - descripcion
+      - fecha
+      title: MovementResponse
+    ProductCreate:
+      properties:
+        codigo:
+          type: string
+          maxLength: 30
+          minLength: 1
+          title: Codigo
+          description: Codigo unico del producto
+        nombre:
+          type: string
+          maxLength: 120
+          minLength: 1
+          title: Nombre
+          description: Nombre del producto
+        precio:
+          type: number
+          minimum: 0.0
+          title: Precio
+          description: Precio unitario del producto
+        activo:
+          type: boolean
+          title: Activo
+          default: true
+      type: object
+      required:
+      - codigo
+      - nombre
+      - precio
+      title: ProductCreate
+    ProductResponse:
+      properties:
+        id:
+          type: integer
+          title: Id
+        codigo:
+          type: string
+          title: Codigo
+        nombre:
+          type: string
+          title: Nombre
+        precio:
+          type: number
+          title: Precio
+        activo:
+          type: boolean
+          title: Activo
+        stock:
+          type: integer
+          title: Stock
+      type: object
+      required:
+      - id
+      - codigo
+      - nombre
+      - precio
+      - activo
+      - stock
+      title: ProductResponse
+    ProductStatusUpdate:
+      properties:
+        activo:
+          type: boolean
+          title: Activo
+          description: Estado operativo del producto
+      type: object
+      required:
+      - activo
+      title: ProductStatusUpdate
+    ProductUpdate:
+      properties:
+        nombre:
+          type: string
+          maxLength: 120
+          minLength: 1
+          title: Nombre
+        precio:
+          type: number
+          minimum: 0.0
+          title: Precio
+        activo:
+          type: boolean
+          title: Activo
+      type: object
+      required:
+      - nombre
+      - precio
+      - activo
+      title: ProductUpdate
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError

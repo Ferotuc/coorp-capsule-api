@@ -17,6 +17,8 @@ Este archivo sirve como base para cargar las historias en una herramienta web co
 | US-09 | Como administrador quiero autenticacion para proteger la API | Could | To Do |
 | US-10 | Como administrador quiero reportes de inventario para analizar movimientos | Could | To Do |
 | US-11 | Como operador quiero multiples bodegas para separar inventarios por ubicacion | Won't | To Do |
+| US-12 | Como encargado quiero que la consulta de producto use cache para responder mas rapido en lecturas repetidas | Must | Done |
+| US-13 | Como desarrollador quiero levantar API y Redis con Docker Compose para ejecutar el entorno con un comando | Must | Done |
 
 ## Criterios Given / When / Then
 
@@ -38,8 +40,18 @@ Given que existe un producto con stock menor a la cantidad solicitada
 When el encargado intenta registrar una salida  
 Then la API rechaza la operacion con 400 y no modifica el stock.
 
+### US-12 - Cache de consulta de producto
+
+Given que existe un producto y Redis esta disponible  
+When el encargado consulta `GET /products/{product_id}` por primera vez  
+Then la API responde desde la fuente principal y guarda la clave `coorp:product:{product_id}` con TTL.
+
+Given que la clave cacheada sigue vigente  
+When el encargado repite la misma consulta  
+Then la API responde desde Redis con header `X-Cache: HIT`.
+
 ## Tablero recomendado
 
 - To Do: US-09, US-10, US-11.
 - In Progress: tareas de video, PDF y carga del tablero web.
-- Done: US-01 a US-08.
+- Done: US-01 a US-08, US-12, US-13.
