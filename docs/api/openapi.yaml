@@ -1,10 +1,393 @@
-Genera un diagrama en Mermaid para la arquitectura de MoveFast con:
-
-- Usuario
-- API Gateway
-- Load Balancer
-- Servicios
-- Base de datos primaria
-- Réplica
-
-Debe ser claro para tarea universitaria
+openapi: 3.0.3
+info:
+  title: Coorp Capsule API
+  version: 1.0.0
+  description: >
+    MVP tecnico para gestionar productos, stock y movimientos de inventario.
+    La API implementa el flujo principal de negocio: crear productos, consultar
+    inventario, cambiar estado y registrar entradas o salidas de stock.
+servers:
+  - url: http://127.0.0.1:8000
+    description: Ejecucion local
+tags:
+  - name: Health
+    description: Verificacion de disponibilidad
+  - name: Products
+    description: Gestion de productos
+  - name: Movements
+    description: Movimientos de inventario
+paths:
+  /:
+    get:
+      tags:
+        - Health
+      summary: Mensaje base de la API
+      responses:
+        "200":
+          description: API disponible
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example:
+                message: Coorp Capsule API funcionando correctamente
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      responses:
+        "200":
+          description: Servicio activo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  service:
+                    type: string
+              example:
+                status: ok
+                service: coorp-capsule-api
+  /products:
+    post:
+      tags:
+        - Products
+      summary: Crear producto
+      description: Crea un producto con stock inicial cero.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductCreate"
+            example:
+              codigo: CAP-001
+              nombre: Capsula Ejecutiva
+              precio: 125.5
+              activo: true
+      responses:
+        "201":
+          description: Producto creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+              example:
+                id: 1
+                codigo: CAP-001
+                nombre: Capsula Ejecutiva
+                precio: 125.5
+                activo: true
+                stock: 0
+        "400":
+          description: Codigo de producto duplicado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                detail: Ya existe un producto con ese codigo
+        "422":
+          description: Error de validacion del request body
+    get:
+      tags:
+        - Products
+      summary: Listar productos
+      responses:
+        "200":
+          description: Lista de productos registrados
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+  /products/{product_id}:
+    get:
+      tags:
+        - Products
+      summary: Consultar producto por ID
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      responses:
+        "200":
+          description: Producto encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Producto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                detail: Producto no encontrado
+    put:
+      tags:
+        - Products
+      summary: Actualizar producto
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductUpdate"
+            example:
+              nombre: Capsula Ejecutiva Plus
+              precio: 145.0
+              activo: true
+      responses:
+        "200":
+          description: Producto actualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Producto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /products/{product_id}/status:
+    patch:
+      tags:
+        - Products
+      summary: Cambiar estado de producto
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductStatusUpdate"
+            example:
+              activo: false
+      responses:
+        "200":
+          description: Estado actualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Producto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /movements:
+    post:
+      tags:
+        - Movements
+      summary: Registrar movimiento de inventario
+      description: Registra una entrada o salida y actualiza el stock del producto.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MovementCreate"
+            examples:
+              entrada:
+                value:
+                  producto_id: 1
+                  tipo: entrada
+                  cantidad: 10
+                  descripcion: Ingreso inicial
+              salida:
+                value:
+                  producto_id: 1
+                  tipo: salida
+                  cantidad: 2
+                  descripcion: Entrega a cliente
+      responses:
+        "201":
+          description: Movimiento registrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Movement"
+        "400":
+          description: Regla de negocio invalida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                stockInsuficiente:
+                  value:
+                    detail: Stock insuficiente para realizar la salida
+                productoInactivo:
+                  value:
+                    detail: No se pueden registrar movimientos en productos inactivos
+        "404":
+          description: Producto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /products/{product_id}/movements:
+    get:
+      tags:
+        - Movements
+      summary: Listar movimientos de un producto
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      responses:
+        "200":
+          description: Movimientos del producto
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Movement"
+        "404":
+          description: Producto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  parameters:
+    ProductId:
+      name: product_id
+      in: path
+      required: true
+      description: Identificador del producto
+      schema:
+        type: integer
+        minimum: 1
+  schemas:
+    ProductCreate:
+      type: object
+      required:
+        - codigo
+        - nombre
+        - precio
+      properties:
+        codigo:
+          type: string
+          minLength: 1
+          maxLength: 30
+        nombre:
+          type: string
+          minLength: 1
+          maxLength: 120
+        precio:
+          type: number
+          minimum: 0
+        activo:
+          type: boolean
+          default: true
+    ProductUpdate:
+      type: object
+      required:
+        - nombre
+        - precio
+        - activo
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          maxLength: 120
+        precio:
+          type: number
+          minimum: 0
+        activo:
+          type: boolean
+    ProductStatusUpdate:
+      type: object
+      required:
+        - activo
+      properties:
+        activo:
+          type: boolean
+    Product:
+      type: object
+      required:
+        - id
+        - codigo
+        - nombre
+        - precio
+        - activo
+        - stock
+      properties:
+        id:
+          type: integer
+        codigo:
+          type: string
+        nombre:
+          type: string
+        precio:
+          type: number
+        activo:
+          type: boolean
+        stock:
+          type: integer
+    MovementCreate:
+      type: object
+      required:
+        - producto_id
+        - tipo
+        - cantidad
+        - descripcion
+      properties:
+        producto_id:
+          type: integer
+          minimum: 1
+        tipo:
+          type: string
+          enum:
+            - entrada
+            - salida
+        cantidad:
+          type: integer
+          minimum: 1
+        descripcion:
+          type: string
+          minLength: 1
+          maxLength: 200
+    Movement:
+      type: object
+      required:
+        - id
+        - producto_id
+        - tipo
+        - cantidad
+        - descripcion
+        - fecha
+      properties:
+        id:
+          type: integer
+        producto_id:
+          type: integer
+        tipo:
+          type: string
+          enum:
+            - entrada
+            - salida
+        cantidad:
+          type: integer
+        descripcion:
+          type: string
+        fecha:
+          type: string
+          format: date-time
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
